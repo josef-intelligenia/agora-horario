@@ -14,7 +14,8 @@ ACENTO = "#0E7C7B"
 FONDO_CLARO = "#F1F4F3"
 FONDO_OSCURO = "#0C1413"
 
-ICONOS = ("icono-192.png", "icono-512.png", "icono-maskable-512.png")
+ICONOS = ("icono-192.png", "icono-512.png", "icono-maskable-512.png",
+          "icono-apple-180.png")
 
 MANIFIESTO = {
     "name": "Horario AGORA · We Granada",
@@ -40,7 +41,7 @@ SERVICE_WORKER = """\
 // El horario es una instantanea que se regenera cada dia: por eso la pagina se
 // pide primero a la red y la cache solo es el respaldo para verla sin conexion.
 // Los iconos y las fuentes, que no cambian, van al reves.
-const CACHE = "agora-v1";
+const CACHE = "agora-v2";   // subir al cambiar iconos o estrategia
 const ESENCIALES = ["./", "./manifest.webmanifest", "./icono-192.png", "./icono-512.png"];
 
 self.addEventListener("install", e => {
@@ -99,7 +100,12 @@ Disallow: /
 
 CABECERA = """\
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="apple-touch-icon" href="icono-192.png">
+    <!-- iOS ignora el manifiesto para el icono y no admite transparencia:
+         necesita su propio PNG opaco de 180. -->
+    <link rel="apple-touch-icon" sizes="180x180" href="icono-apple-180.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Horario AGORA">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="{claro}">
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="{oscuro}">
     <script>

@@ -70,23 +70,22 @@ def escribir_png(ruta: Path, pixeles, lado: int) -> None:
     )
 
 
-def dibujar(lado: int, maskable: bool) -> list:
+def dibujar(lado: int, *, redondeado: bool, util_rel: float) -> list:
     """Tres barras decrecientes sobre un cuadrado: una parrilla de horarios.
 
-    El icono normal es un cuadrado redondeado sobre fondo transparente. El
-    maskable cubre todo el lienzo, porque el sistema le aplica su propia
-    mascara, y encoge el dibujo a la zona segura (el 80% central).
+    ``redondeado``  el icono se recorta solo; si no, cubre todo el lienzo porque
+                    lo recorta el sistema (Android maskable, iOS).
+    ``util_rel``    proporcion del lienzo que ocupa el dibujo. Menos de 1 deja la
+                    zona segura que exige un icono maskable.
     """
     g = lado * SUPER
     pixeles = [NADA] * (g * g)
 
-    if maskable:
-        rect_redondeado(pixeles, g, 0, 0, g, g, 0, FONDO)
-        util, origen = g * 0.72, g * 0.14      # zona segura, con holgura
-    else:
-        rect_redondeado(pixeles, g, 0, 0, g, g, g * 0.22, FONDO)
-        util, origen = g, 0
+    radio = g * 0.22 if redondeado else 0
+    rect_redondeado(pixeles, g, 0, 0, g, g, radio, FONDO)
 
+    util = g * util_rel
+    origen = (g - util) / 2
     alto_barra = util * 0.115
     hueco = util * 0.075
     total = 3 * alto_barra + 2 * hueco
@@ -102,13 +101,18 @@ def dibujar(lado: int, maskable: bool) -> list:
 
 def main() -> None:
     DESTINO.mkdir(parents=True, exist_ok=True)
-    for nombre, lado, maskable in [
-        ("icono-192.png", 192, False),
-        ("icono-512.png", 512, False),
-        ("icono-maskable-512.png", 512, True),
+    for nombre, lado, redondeado, util in [
+        ("icono-192.png", 192, True, 1.0),
+        ("icono-512.png", 512, True, 1.0),
+        # Android recorta el maskable con su mascara: fondo a sangre, dibujo en
+        # la zona segura.
+        ("icono-maskable-512.png", 512, False, 0.72),
+        # iOS tambien pone su propia mascara y, sobre todo, no admite
+        # transparencia: la compone sobre negro. Fondo a sangre y opaco.
+        ("icono-apple-180.png", 180, False, 0.86),
     ]:
         ruta = DESTINO / nombre
-        escribir_png(ruta, dibujar(lado, maskable), lado)
+        escribir_png(ruta, dibujar(lado, redondeado=redondeado, util_rel=util), lado)
         print(f"{ruta}  ({ruta.stat().st_size / 1024:.1f} KB)")
 
 
