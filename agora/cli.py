@@ -190,6 +190,8 @@ def construir_parser() -> argparse.ArgumentParser:
                            help="generar una pagina HTML autocontenida para compartir")
     p_pub.add_argument("--desde", default="hoy")
     p_pub.add_argument("--dias", type=int, default=14)
+    p_pub.add_argument("--estado", metavar="FICHERO",
+                       help="escribir tambien un JSON con el resumen de la publicacion")
     p_pub.add_argument("--fragmento", action="store_true",
                        help="sin doctype/head/body, para publicar como artifact de Claude")
     # -o/--salida ya viene del grupo comun de opciones de salida.
@@ -272,6 +274,9 @@ def main(argv: list[str] | None = None) -> int:
                         envoltorio=not args.fragmento)
         kb = ruta.stat().st_size / 1024
         print(f"{ruta}  ({len(clases)} clases, {kb:.0f} KB)")
+        if args.estado:
+            from .publicar import escribir_estado
+            print(escribir_estado(clases, args.estado))
         return 0
 
     if args.comando == "info":

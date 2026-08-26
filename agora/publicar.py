@@ -84,6 +84,27 @@ def _fragmento(html: str) -> str:
     return "\n".join(trozos) + "\n"
 
 
+def resumen(clases: Sequence[Clase]) -> dict:
+    """Metadatos de la publicacion, para dejar constancia de la ultima ejecucion."""
+    cat = api.catalogo(clases)
+    fechas = sorted({c.fecha for c in clases})
+    return {
+        "actualizado": _ahora_granada().strftime("%d/%m/%Y %H:%M"),
+        "clases": len(clases),
+        "rango": [fechas[0].isoformat(), fechas[-1].isoformat()] if fechas else None,
+        "actividades": len(cat["actividades"]),
+        "salas": len(cat["salas"]),
+        "monitores": len(cat["monitores"]),
+    }
+
+
+def escribir_estado(clases: Sequence[Clase], destino: str | Path) -> Path:
+    ruta = Path(destino).expanduser()
+    ruta.parent.mkdir(parents=True, exist_ok=True)
+    ruta.write_text(json.dumps(resumen(clases), ensure_ascii=False, indent=2) + "\n", "utf-8")
+    return ruta
+
+
 def generar(clases: Sequence[Clase], *, envoltorio: bool = True) -> str:
     if not PLANTILLA.is_file():
         raise api.AgoraError(f"Falta la plantilla {PLANTILLA}")

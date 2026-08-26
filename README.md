@@ -95,6 +95,19 @@ Genera **un solo fichero HTML** con la misma interfaz y los datos incrustados:
 funciona sin servidor, sin conexión y en cualquier hosting estático. Como es una
 instantánea, no se actualiza sola — hay que regenerarla y volver a subirla.
 
+## Publicación automática
+
+El workflow `.github/workflows/publicar.yml` regenera la instantánea de 21 días
+cada mañana y la despliega en GitHub Pages. Al terminar actualiza y commitea
+`ultima-actualizacion.json`, que deja constancia de cuándo se publicó y qué
+cubría.
+
+Ese commit no es cosmético: GitHub **desactiva los workflows programados de un
+repositorio público tras 60 días sin actividad**, y las propias ejecuciones no
+cuentan como actividad. El commit diario la genera. No provoca un bucle porque
+los push hechos con `GITHUB_TOKEN` no disparan nuevas ejecuciones. Si aun así el
+workflow apareciese desactivado: `gh workflow enable publicar.yml`.
+
 ## Estructura
 
 | Fichero | Qué hace |
@@ -104,4 +117,5 @@ instantánea, no se actualiza sola — hay que regenerarla y volver a subirla.
 | `agora/web.py` | servidor local y proxy JSON/iCalendar |
 | `agora/publicar.py` | generador de la página autocontenida |
 | `agora/exportar.py` | JSON, CSV e iCalendar |
+| `.github/workflows/publicar.yml` | regenera y despliega la página cada día |
 | `agora/static/index.html` | la interfaz, en modo servidor o instantánea |

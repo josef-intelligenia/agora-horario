@@ -11,7 +11,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write     # para commitear ultima-actualizacion.json
   pages: write
   id-token: write
 
@@ -30,7 +30,9 @@ jobs:
           python-version: "3.12"
 
       - name: Generar la pagina
-        run: python -m agora publicar --dias 21 --sin-cache -o site/index.html
+        run: |
+          python -m agora publicar --dias 21 --sin-cache \
+            -o site/index.html --estado ultima-actualizacion.json
 
       - name: Comprobar que tiene contenido
         run: |
@@ -43,6 +45,24 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
+
+      # GitHub apaga los workflows programados de un repo publico tras 60 dias
+      # sin actividad, y las propias ejecuciones no cuentan como actividad. Este
+      # commit diario la genera. No provoca un bucle: los push hechos con
+      # GITHUB_TOKEN no disparan nuevas ejecuciones.
+      # Si fallara, no debe impedir que la pagina se publique.
+      - name: Registrar la ultima actualizacion
+        continue-on-error: true
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ultima-actualizacion.json
+          if git diff --cached --quiet; then
+            echo "Sin cambios que registrar"
+          else
+            git commit -m "Horario actualizado: $(TZ=Europe/Madrid date +'%d/%m/%Y %H:%M')"
+            git push
+          fi
 
   desplegar:
     needs: generar
