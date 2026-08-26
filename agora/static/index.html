@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Horario AGORA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  /* Neutros con sesgo verde-azulado (agua) y un acento teal que no compite
+     con los colores vivos que la propia AGORA asigna a cada actividad. */
+  :root{
+    --bg:#F1F4F3; --panel:#FFFFFF; --panel-2:#F7F9F9; --linea:#DBE3E2;
+    --texto:#0F1C1B; --suave:#4C5B5A; --tenue:#7C8B8A;
+    --acento:#0E7C7B; --acento-suave:#DDF0EF;
+    --sombra:0 1px 2px rgba(12,32,31,.06), 0 8px 24px rgba(12,32,31,.07);
+    --radio:12px;
+    --display:"Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+    --cuerpo:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --cifras:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  }
+  /* El visor deja el documento sin marcar cuando el tema es "el del sistema",
+     asi que hacen falta las tres variantes. */
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0C1413; --panel:#131E1D; --panel-2:#182524; --linea:#263635;
+      --texto:#E4EDEC; --suave:#9DB0AE; --tenue:#6B807E;
+      --acento:#4FC3BE; --acento-suave:#12312F;
+      --sombra:0 1px 2px rgba(0,0,0,.45), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0C1413; --panel:#131E1D; --panel-2:#182524; --linea:#263635;
+    --texto:#E4EDEC; --suave:#9DB0AE; --tenue:#6B807E;
+    --acento:#4FC3BE; --acento-suave:#12312F;
+    --sombra:0 1px 2px rgba(0,0,0,.45), 0 8px 24px rgba(0,0,0,.35);
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none !important; animation:none !important}
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--texto);
+    font:400 15px/1.5 var(--cuerpo);
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--acento)}
+  .contenedor{max-width:1180px;margin:0 auto;padding:0 20px}
+
+  /* ---------- cabecera ---------- */
+  header{
+    position:sticky; top:0; z-index:30; background:var(--panel);
+    border-bottom:1px solid var(--linea);
+  }
+  .barra{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 0}
+  .marca{display:flex;align-items:baseline;gap:10px;margin-right:auto}
+  .marca h1{font:700 22px/1 var(--display);margin:0;text-transform:uppercase;letter-spacing:.045em}
+  .marca span{font-size:12px;color:var(--tenue);letter-spacing:.01em}
+  .nav-fecha{display:flex;align-items:center;gap:6px}
+  button,select,input{font:inherit;color:inherit}
+  .btn{
+    background:var(--panel-2); border:1px solid var(--linea); color:var(--texto);
+    border-radius:9px; padding:7px 12px; cursor:pointer; white-space:nowrap;
+    transition:background .12s,border-color .12s;
+  }
+  .btn:hover{background:var(--acento-suave);border-color:var(--acento)}
+  .btn:disabled{opacity:.45;cursor:default}
+  .btn.principal{background:var(--acento);border-color:var(--acento);color:#fff}
+  .btn.principal:hover{filter:brightness(1.08)}
+  .btn.icono{padding:7px 10px;font-variant-numeric:tabular-nums}
+  input[type=date],input[type=search],input[type=time],select{
+    background:var(--panel-2); border:1px solid var(--linea);
+    border-radius:9px; padding:7px 10px;
+  }
+  input:focus,select:focus,button:focus-visible{
+    outline:2px solid var(--acento); outline-offset:1px;
+  }
+
+  /* ---------- filtros ---------- */
+  .filtros{
+    display:grid; gap:10px; padding:0 0 14px;
+    grid-template-columns:minmax(200px,1.6fr) repeat(3,minmax(130px,1fr)) auto;
+  }
+  @media (max-width:860px){ .filtros{grid-template-columns:1fr 1fr} }
+  .horas{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--suave)}
+  .horas input{width:100%;min-width:0}
+  .conmutador{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--suave);cursor:pointer;white-space:nowrap}
+
+  /* ---------- dias ---------- */
+  .dias{display:flex;gap:8px;overflow-x:auto;padding:0 0 14px;scrollbar-width:thin}
+  .dia-chip{
+    flex:0 0 auto; border:1px solid var(--linea); background:var(--panel);
+    border-radius:11px; padding:8px 13px; cursor:pointer; text-align:left; line-height:1.25;
+  }
+  .dia-chip.activo{border-color:var(--acento); background:var(--acento-suave)}
+  .dia-chip .dow{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--tenue)}
+  .dia-chip .num{font:600 16px/1.2 var(--cifras);font-variant-numeric:tabular-nums}
+  .dia-chip .cnt{font-size:11px;color:var(--tenue)}
+  .dia-chip.hoy .num{color:var(--acento)}
+
+  /* ---------- lista ---------- */
+  main{padding:18px 0 60px}
+  .grupo{margin-bottom:26px}
+  .grupo h2{
+    font:600 13px/1.2 var(--display); text-transform:uppercase; letter-spacing:.12em; color:var(--tenue);
+    margin:0 0 10px; padding-bottom:8px; border-bottom:1px solid var(--linea);
+    position:sticky; top:0;
+  }
+  .tarjetas{display:grid;gap:8px}
+  .clase{
+    display:grid; grid-template-columns:78px 8px 1fr auto; gap:14px; align-items:center;
+    background:var(--panel); border:1px solid var(--linea); border-radius:var(--radio);
+    padding:11px 14px; cursor:pointer; text-align:left; width:100%;
+    transition:transform .1s, box-shadow .12s, border-color .12s;
+  }
+  .clase:hover{box-shadow:var(--sombra); border-color:var(--acento); transform:translateY(-1px)}
+  .clase.pasada{opacity:.48}
+  .hora{font:500 15px/1.2 var(--cifras);font-variant-numeric:tabular-nums}
+  .hora small{display:block;font-weight:500;font-size:11.5px;color:var(--tenue);margin-top:2px}
+  .cinta{width:8px;height:38px;border-radius:5px}
+  .nombre{font:600 18px/1.15 var(--display);letter-spacing:.02em}
+  .meta{font-size:12.5px;color:var(--suave);display:flex;gap:6px;flex-wrap:wrap;margin-top:2px}
+  .meta em{font-style:normal;color:var(--tenue)}
+  .lado{text-align:right;font-size:12px;color:var(--tenue);white-space:nowrap}
+  .lado b{display:block;font:500 13px/1.3 var(--cifras);color:var(--suave);font-variant-numeric:tabular-nums}
+
+  .aviso{
+    background:var(--panel); border:1px solid var(--linea); border-radius:var(--radio);
+    padding:28px; text-align:center; color:var(--suave);
+  }
+  .aviso.error{border-color:#d1495b;color:#d1495b}
+  .cargando{color:var(--tenue);font-size:13px}
+
+  /* ---------- panel de detalle ---------- */
+  .velo{
+    position:fixed; inset:0; background:rgba(9,12,17,.5); z-index:40;
+    opacity:0; pointer-events:none; transition:opacity .16s;
+  }
+  .velo.abierto{opacity:1;pointer-events:auto}
+  .cajon{
+    position:fixed; top:0; right:0; bottom:0; width:min(460px,100%); z-index:50;
+    background:var(--panel); border-left:1px solid var(--linea);
+    transform:translateX(100%); transition:transform .2s ease;
+    display:flex; flex-direction:column;
+  }
+  .cajon.abierto{transform:none}
+  .cajon-cab{padding:18px 20px;border-bottom:1px solid var(--linea)}
+  .cajon-cab .cerrar{float:right;background:none;border:0;font-size:22px;line-height:1;cursor:pointer;color:var(--tenue)}
+  .cajon-cab h3{margin:0 0 5px;font:700 26px/1.05 var(--display);text-transform:uppercase;letter-spacing:.02em}
+  .cajon-cab p{margin:0;color:var(--suave);font-size:13px}
+  .cajon-cuerpo{padding:18px 20px;overflow:auto;flex:1}
+  .descripcion{background:var(--panel-2);border:1px solid var(--linea);border-radius:10px;padding:13px;font-size:14px;color:var(--suave);margin-bottom:18px}
+  dl.campos{display:grid;grid-template-columns:auto 1fr;gap:7px 14px;margin:0;font-size:13px}
+  dl.campos dt{color:var(--tenue)}
+  dl.campos dd{margin:0;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+  details.crudo{margin-top:18px;font-size:12.5px}
+  details.crudo summary{cursor:pointer;color:var(--suave)}
+  details.crudo pre{
+    background:var(--panel-2); border:1px solid var(--linea); border-radius:9px;
+    padding:11px; overflow:auto; max-height:320px; font-size:11.5px; margin-top:9px;
+  }
+  .cajon-pie{padding:14px 20px;border-top:1px solid var(--linea);display:flex;gap:8px}
+  footer{color:var(--tenue);font-size:12px;padding:0 0 30px;text-align:center}
+</style>
+</head>
+<body>
+<!--DATOS-->
+
+<header>
+  <div class="contenedor">
+    <div class="barra">
+      <div class="marca">
+        <h1>Horario AGORA</h1><span id="subtitulo">We Granada · actividades colectivas</span>
+      </div>
+      <div class="nav-fecha">
+        <button class="btn icono" id="anterior" title="Semana anterior">&larr;</button>
+        <input type="date" id="desde">
+        <button class="btn icono" id="siguiente" title="Semana siguiente">&rarr;</button>
+        <select id="dias" title="Dias a mostrar">
+          <option value="1">1 dia</option>
+          <option value="3">3 dias</option>
+          <option value="7" selected>7 dias</option>
+          <option value="14">14 dias</option>
+          <option value="30">30 dias</option>
+        </select>
+        <button class="btn icono" id="hoy">Hoy</button>
+      </div>
+      <button class="btn" id="refrescar" title="Ignorar cache y volver a descargar">Actualizar</button>
+      <button class="btn principal" id="ics" title="Descargar los resultados filtrados en .ics">Exportar</button>
+    </div>
+
+    <div class="filtros">
+      <input type="search" id="q" placeholder="Buscar actividad, monitor, sala o descripcion…  ( / )">
+      <select id="actividad"><option value="">Toda actividad</option></select>
+      <select id="sala"><option value="">Toda sala</option></select>
+      <select id="monitor"><option value="">Todo monitor</option></select>
+      <div class="horas">
+        <input type="time" id="h1" title="Desde"><span>–</span><input type="time" id="h2" title="Hasta">
+      </div>
+    </div>
+    <div class="filtros" style="grid-template-columns:auto auto 1fr;padding-bottom:12px">
+      <label class="conmutador"><input type="checkbox" id="proximas" checked> Solo proximas</label>
+      <button class="btn" id="limpiar">Limpiar filtros</button>
+      <div class="cargando" id="estado" style="text-align:right;align-self:center"></div>
+    </div>
+
+    <div class="dias" id="dias-chips"></div>
+  </div>
+</header>
+
+<main class="contenedor" id="lista"></main>
+<footer class="contenedor">
+  Datos de <a href="https://agoragranada.provis.es" target="_blank" rel="noreferrer">agoragranada.provis.es</a>.
+  La ocupacion real de las clases solo la publica AGORA con sesion iniciada.
+</footer>
+
+<div class="velo" id="velo"></div>
+<aside class="cajon" id="cajon" aria-hidden="true">
+  <div class="cajon-cab">
+    <button class="cerrar" id="cerrar" title="Cerrar (Esc)">&times;</button>
+    <h3 id="d-nombre"></h3><p id="d-cuando"></p>
+  </div>
+  <div class="cajon-cuerpo">
+    <div class="descripcion" id="d-descripcion" hidden></div>
+    <dl class="campos" id="d-campos"></dl>
+    <details class="crudo"><summary>Datos crudos de la API</summary><pre id="d-crudo"></pre></details>
+  </div>
+  <div class="cajon-pie">
+    <button class="btn principal" id="d-ics">Anadir al calendario</button>
+  </div>
+</aside>
+
+<script>
+const DOW = ["dom","lun","mar","mie","jue","vie","sab"];
+const MESES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[m]));
+
+// Dos modos con la misma interfaz:
+//  - servidor : la app local consulta AGORA en vivo a traves de /api
+//  - instantanea : pagina autocontenida, los datos vienen incrustados
+const FUENTE = window.AGORA_DATOS || null;
+
+let clases = [], catalogo = null, diaActivo = null, peticion = 0;
+
+const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+const hoyISO = () => iso(new Date());
+const plano = s => String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+const minutos = hhmm => { const [h, m] = String(hhmm).split(":"); return (+h) * 60 + (+m || 0); };
+
+function estadoFiltros() {
+  return {
+    desde: $("#desde").value || hoyISO(),
+    dias: Number($("#dias").value),
+    q: $("#q").value.trim(),
+    actividad: $("#actividad").value,
+    sala: $("#sala").value,
+    monitor: $("#monitor").value,
+    h1: $("#h1").value,
+    h2: $("#h2").value,
+    proximas: $("#proximas").checked,
+  };
+}
+
+function params(extra = {}) {
+  const f = estadoFiltros();
+  const p = new URLSearchParams({ desde: f.desde, dias: f.dias });
+  if (f.q) p.set("q", f.q);
+  if (f.actividad) p.set("actividad", f.actividad);
+  if (f.sala) p.set("sala", f.sala);
+  if (f.monitor) p.set("monitor", f.monitor);
+  if (f.h1) p.set("desde_hora", f.h1);
+  if (f.h2) p.set("hasta_hora", f.h2);
+  if (f.proximas) p.set("proximas", "1");
+  for (const [k, v] of Object.entries(extra)) p.set(k, v);
+  return p;
+}
+
+/* ------------------------------ carga de datos ------------------------------ */
+
+function filtrarLocal() {
+  const f = estadoFiltros();
+  const inicio = f.desde, fin = iso(new Date(new Date(f.desde + "T00:00:00").getTime() + f.dias * 864e5));
+  const ahora = new Date();
+  const nq = plano(f.q), na = plano(f.actividad), ns = plano(f.sala), nm = plano(f.monitor);
+  const min1 = f.h1 ? minutos(f.h1) : null, min2 = f.h2 ? minutos(f.h2) : null;
+
+  const ventana = FUENTE.clases.filter(c => c.fecha >= inicio && c.fecha < fin);
+  const filtradas = ventana.filter(c => {
+    if (na && !plano(c.nombre).includes(na)) return false;
+    if (ns && !plano(c.sala).includes(ns)) return false;
+    if (nm && !plano(c.monitor).includes(nm)) return false;
+    if (nq && !plano(`${c.nombre} ${c.monitor} ${c.sala} ${c.descripcion}`).includes(nq)) return false;
+    const m = minutos(c.hora);
+    if (min1 !== null && m < min1) return false;
+    if (min2 !== null && m > min2) return false;
+    if (f.proximas && new Date(c.fin_utc || c.fin) < ahora) return false;
+    return true;
+  });
+  return { ventana, filtradas };
+}
+
+async function cargar(refrescar = false) {
+  if (FUENTE) {
+    const { ventana, filtradas } = filtrarLocal();
+    clases = filtradas; catalogo = FUENTE.catalogo;
+    marcarEstado(filtradas.length, ventana.length);
+    poblarFiltros(); pintarDias(); pintar();
+    return;
+  }
+  const mio = ++peticion;
+  $("#estado").textContent = refrescar ? "Descargando de AGORA…" : "Cargando…";
+  try {
+    const r = await fetch("/api/clases?" + params(refrescar ? { refrescar: 1 } : {}));
+    const datos = await r.json();
+    if (mio !== peticion) return;                     // llego tarde, ya hay otra busqueda
+    if (!r.ok) throw new Error(datos.error || r.statusText);
+    clases = datos.clases; catalogo = datos.catalogo;
+    marcarEstado(datos.total, datos.total_ventana);
+    poblarFiltros(); pintarDias(); pintar();
+  } catch (e) {
+    if (mio !== peticion) return;
+    $("#estado").textContent = "";
+    $("#lista").innerHTML = `<div class="aviso error">No se pudieron cargar los datos.<br><small>${esc(e.message)}</small></div>`;
+  }
+}
+
+const marcarEstado = (n, total) =>
+  $("#estado").textContent = n === total ? `${n} clases` : `${n} de ${total} clases`;
+
+function poblarFiltros() {
+  // El catalogo se calcula sobre la ventana completa, asi que las opciones no
+  // cambian al filtrar: basta con conservar lo que hubiera seleccionado.
+  const rellena = (sel, items, etiqueta) => {
+    const previo = sel.value;
+    sel.innerHTML = `<option value="">${etiqueta}</option>` +
+      items.map(i => `<option value="${esc(i.nombre)}">${esc(i.nombre)} (${i.clases})</option>`).join("");
+    sel.value = previo;
+  };
+  rellena($("#actividad"), catalogo.actividades, "Toda actividad");
+  rellena($("#sala"),      catalogo.salas,       "Toda sala");
+  rellena($("#monitor"),   catalogo.monitores,   "Todo monitor");
+}
+
+/* -------------------------------- pintado ---------------------------------- */
+
+function agrupar() {
+  const grupos = new Map();
+  for (const c of clases) {
+    if (!grupos.has(c.fecha)) grupos.set(c.fecha, []);
+    grupos.get(c.fecha).push(c);
+  }
+  return grupos;
+}
+
+function pintarDias() {
+  const grupos = agrupar(), cont = $("#dias-chips");
+  if (diaActivo && !grupos.has(diaActivo)) diaActivo = null;
+  const chips = [`<button class="dia-chip ${diaActivo ? "" : "activo"}" data-dia="">
+      <div class="dow">Todo</div><div class="num">${grupos.size}d</div><div class="cnt">${clases.length} clases</div></button>`];
+  for (const [fecha, lista] of grupos) {
+    const d = new Date(fecha + "T00:00:00");
+    chips.push(`<button class="dia-chip ${diaActivo === fecha ? "activo" : ""} ${fecha === hoyISO() ? "hoy" : ""}" data-dia="${fecha}">
+      <div class="dow">${DOW[d.getDay()]}</div><div class="num">${d.getDate()}</div><div class="cnt">${lista.length}</div></button>`);
+  }
+  cont.innerHTML = chips.join("");
+  cont.querySelectorAll(".dia-chip").forEach(b =>
+    b.onclick = () => { diaActivo = b.dataset.dia || null; pintarDias(); pintar(); });
+}
+
+function tarjeta(c, ahora) {
+  const pasada = new Date(c.fin_utc || c.fin) < ahora;
+  return `<button class="clase ${pasada ? "pasada" : ""}" data-id="${c.id}">
+    <div class="hora">${c.hora}<small>${c.hora_fin}</small></div>
+    <div class="cinta" style="background:${esc(c.color)}"></div>
+    <div>
+      <div class="nombre">${esc(c.nombre)}</div>
+      <div class="meta"><span>${esc(c.sala)}</span><em>·</em><span>${esc(c.monitor)}</span></div>
+    </div>
+    <div class="lado"><b>${c.duracion_min} min</b>${c.capacidad ? c.capacidad + " plazas" : ""}</div>
+  </button>`;
+}
+
+function pintar() {
+  const grupos = agrupar(), ahora = new Date(), fuera = [];
+  for (const [fecha, lista] of grupos) {
+    if (diaActivo && fecha !== diaActivo) continue;
+    const d = new Date(fecha + "T00:00:00");
+    const titulo = `${DOW[d.getDay()]} ${d.getDate()} de ${MESES[d.getMonth()]}` +
+      (fecha === hoyISO() ? " · hoy" : "");
+    fuera.push(`<section class="grupo"><h2>${titulo} — ${lista.length} clases</h2><div class="tarjetas">` +
+      lista.map(c => tarjeta(c, ahora)).join("") + `</div></section>`);
+  }
+  $("#lista").innerHTML = fuera.length
+    ? fuera.join("")
+    : `<div class="aviso">Ninguna clase cumple estos filtros.</div>`;
+  $("#lista").querySelectorAll(".clase").forEach(el =>
+    el.onclick = () => abrir(clases.find(c => String(c.id) === el.dataset.id)));
+}
+
+/* ------------------------------ panel lateral ------------------------------- */
+
+function abrir(c) {
+  if (!c) return;
+  const d = new Date(c.inicio);
+  $("#d-nombre").textContent = c.nombre;
+  $("#d-cuando").textContent =
+    `${DOW[d.getDay()]} ${d.getDate()} de ${MESES[d.getMonth()]} · ${c.hora}–${c.hora_fin}`;
+  $("#d-descripcion").hidden = !c.descripcion;
+  $("#d-descripcion").textContent = c.descripcion || "";
+  const campos = {
+    "Sala": c.sala, "Monitor": c.monitor,
+    "Duracion": c.duracion_min + " min",
+    "Capacidad": c.capacidad ? c.capacidad + " plazas" : "sin definir",
+    "Reservas publicadas": c.reservas + (c.reservas === 0 ? " (AGORA no las publica sin login)" : ""),
+    "Lista de espera": c.lista_espera ? "si" : "no",
+    "ID clase": c.id, "ID actividad": c.actividad_id, "ID sala": c.sala_id,
+  };
+  $("#d-campos").innerHTML = Object.entries(campos)
+    .map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("");
+  const crudo = $("#d-crudo").closest("details");
+  if (c.crudo) { crudo.hidden = false; $("#d-crudo").textContent = JSON.stringify(c.crudo, null, 2); }
+  else crudo.hidden = true;
+  $("#d-ics").onclick = () => exportarICS([c], `agora-${plano(c.nombre).replace(/\W+/g, "-")}.ics`);
+  $("#cajon").classList.add("abierto"); $("#cajon").setAttribute("aria-hidden", "false");
+  $("#velo").classList.add("abierto");
+}
+
+function cerrar() {
+  $("#cajon").classList.remove("abierto"); $("#cajon").setAttribute("aria-hidden", "true");
+  $("#velo").classList.remove("abierto");
+}
+
+/* --------------------------------- iCalendar -------------------------------- */
+
+const escICS = t => String(t ?? "").replace(/\\/g, "\\\\").replace(/;/g, "\\;")
+  .replace(/,/g, "\\,").replace(/\n/g, "\\n");
+const selloICS = iso => String(iso).replace(/[-:]/g, "").replace(/\.\d+Z?$/, "Z");
+
+function construirICS(lista) {
+  const ahora = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
+  const l = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//agora-horario//ES", "CALSCALE:GREGORIAN",
+             "METHOD:PUBLISH", "X-WR-CALNAME:AGORA - Actividades colectivas", "X-WR-TIMEZONE:Europe/Madrid"];
+  for (const c of lista) {
+    l.push("BEGIN:VEVENT", `UID:agora-${c.id}@agoragranada.provis.es`, `DTSTAMP:${ahora}`,
+      `DTSTART:${selloICS(c.inicio_utc)}`, `DTEND:${selloICS(c.fin_utc)}`,
+      `SUMMARY:${escICS(c.nombre)}`, `LOCATION:${escICS(c.sala)} - AGORA We Granada`,
+      `DESCRIPTION:${escICS(c.descripcion || "")}`, `X-AGORA-MONITOR:${escICS(c.monitor)}`, "END:VEVENT");
+  }
+  l.push("END:VCALENDAR");
+  return l.join("\r\n") + "\r\n";
+}
+
+async function exportarICS(lista, nombre = "agora-clases.ics") {
+  if (!FUENTE) {                                  // con servidor, lo genera Python
+    location.href = "/api/ics?" + (lista.length === 1
+      ? new URLSearchParams({ desde: lista[0].fecha, dias: 1, q: lista[0].nombre,
+                              desde_hora: lista[0].hora, hasta_hora: lista[0].hora })
+      : params());
+    return;
+  }
+  const texto = construirICS(lista);
+  // En una pagina publicada las descargas van por la capacidad "downloads";
+  // en un fichero suelto o en un hosting normal, basta con un blob.
+  try {
+    const descargas = window.claude?.use ? await window.claude.use("downloads") : null;
+    if (descargas) { await descargas.save({ filename: nombre, data: texto }); return; }
+  } catch (e) { /* el visor pudo rechazarla: se prueba el blob */ }
+  try {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([texto], { type: "text/calendar" }));
+    a.download = nombre; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  } catch (e) {
+    alert("No se pudo descargar el calendario desde esta pagina.");
+  }
+}
+
+/* --------------------------------- controles -------------------------------- */
+
+function mover(dias) {
+  const d = new Date(($("#desde").value || hoyISO()) + "T00:00:00");
+  d.setDate(d.getDate() + dias);
+  $("#desde").value = iso(d); diaActivo = null; cargar();
+}
+
+let debounce;
+const reprogramar = () => { clearTimeout(debounce); debounce = setTimeout(() => cargar(), FUENTE ? 90 : 260); };
+
+$("#desde").value = hoyISO();
+$("#desde").onchange = () => { diaActivo = null; cargar(); };
+$("#dias").onchange = () => { diaActivo = null; cargar(); };
+$("#anterior").onclick = () => mover(-Number($("#dias").value));
+$("#siguiente").onclick = () => mover(+Number($("#dias").value));
+$("#hoy").onclick = () => { $("#desde").value = hoyISO(); diaActivo = null; cargar(); };
+$("#refrescar").onclick = () => cargar(true);
+$("#ics").onclick = () => exportarICS(clases);
+$("#q").oninput = reprogramar;
+["actividad","sala","monitor","h1","h2","proximas"].forEach(id => $("#" + id).onchange = () => cargar());
+$("#limpiar").onclick = () => {
+  ["q","actividad","sala","monitor","h1","h2"].forEach(id => $("#" + id).value = "");
+  $("#proximas").checked = true; diaActivo = null; cargar();
+};
+$("#cerrar").onclick = cerrar;
+$("#velo").onclick = cerrar;
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") cerrar();
+  if (e.key === "/" && document.activeElement !== $("#q")) { e.preventDefault(); $("#q").focus(); }
+});
+
+// Ajustes propios de la instantanea: sin descarga en vivo y con rango acotado.
+if (FUENTE) {
+  $("#refrescar").hidden = true;
+  $("#subtitulo").textContent = `We Granada · datos del ${FUENTE.generado}`;
+  if (FUENTE.rango) {
+    $("#desde").min = FUENTE.rango[0];
+    $("#desde").max = FUENTE.rango[1];
+    if (hoyISO() < FUENTE.rango[0]) $("#desde").value = FUENTE.rango[0];
+    if (hoyISO() > FUENTE.rango[1]) $("#desde").value = FUENTE.rango[1];
+  }
+}
+
+cargar();
+</script>
+</body>
+</html>

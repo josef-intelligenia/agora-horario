@@ -1,0 +1,55 @@
+name: Publicar horario
+
+# La pagina es una instantanea: se regenera cada manana y se despliega en
+# GitHub Pages. Si AGORA no responde, el job falla y sigue publicada la ultima
+# version buena.
+on:
+  schedule:
+    - cron: "0 5 * * *"      # 05:00 UTC = 07:00 en Granada (06:00 en invierno)
+  workflow_dispatch:          # tambien se puede lanzar a mano
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  generar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Generar la pagina
+        run: python -m agora publicar --dias 21 --sin-cache -o site/index.html
+
+      - name: Comprobar que tiene contenido
+        run: |
+          test -s site/index.html
+          grep -q '"clases":\[{' site/index.html || {
+            echo "::error::La pagina se genero sin clases"; exit 1; }
+          echo "Generada: $(du -h site/index.html | cut -f1)"
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  desplegar:
+    needs: generar
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.despliegue.outputs.page_url }}
+    steps:
+      - id: despliegue
+        uses: actions/deploy-pages@v4
