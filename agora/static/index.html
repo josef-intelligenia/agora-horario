@@ -88,6 +88,48 @@
   .horas input{width:100%;min-width:0}
   .conmutador{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--suave);cursor:pointer;white-space:nowrap}
 
+  /* ---------- filtro de seleccion multiple ---------- */
+  .multi{position:relative;min-width:0}
+  .multi > .disparador{
+    width:100%; display:flex; align-items:center; gap:8px; text-align:left;
+    padding:7px 10px; overflow:hidden;
+  }
+  .multi > .disparador .txt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .multi > .disparador .flecha{margin-left:auto;color:var(--tenue);font-size:10px}
+  .multi.activo > .disparador{border-color:var(--acento);background:var(--acento-suave)}
+  .multi .panel{
+    position:absolute; top:calc(100% + 6px); left:0; z-index:60;
+    min-width:min(280px,90vw); max-width:340px; max-height:330px; overflow:auto;
+    background:var(--panel); border:1px solid var(--linea); border-radius:11px;
+    box-shadow:var(--sombra); padding:8px; display:none;
+  }
+  .multi.abierto .panel{display:block}
+  .multi .panel .buscador{width:100%;margin-bottom:6px}
+  .multi .opcion{
+    display:flex; align-items:center; gap:9px; padding:6px 8px; border-radius:8px;
+    cursor:pointer; font-size:13.5px; line-height:1.3;
+  }
+  .multi .opcion:hover{background:var(--acento-suave)}
+  .multi .opcion input{accent-color:var(--acento);flex:0 0 auto}
+  .multi .opcion .n{
+    margin-left:auto; color:var(--tenue); font-size:11.5px;
+    font-family:var(--cifras); font-variant-numeric:tabular-nums;
+  }
+  .multi .vacio{padding:10px 8px;color:var(--tenue);font-size:13px}
+
+  .chips{display:flex;flex-wrap:wrap;gap:6px;padding:0 0 12px}
+  .chips:empty{display:none}
+  .chip{
+    display:inline-flex; align-items:center; gap:2px;
+    background:var(--acento-suave); border:1px solid var(--acento);
+    border-radius:999px; padding:3px 5px 3px 11px; font-size:12.5px;
+  }
+  .chip .quitar{
+    border:0; background:none; color:var(--suave); cursor:pointer;
+    font-size:15px; line-height:1; padding:0 4px;
+  }
+  .chip .quitar:hover{color:var(--texto)}
+
   /* ---------- dias ---------- */
   .dias{display:flex;gap:8px;overflow-x:auto;padding:0 0 14px;scrollbar-width:thin}
   .dia-chip{
@@ -193,9 +235,9 @@
 
     <div class="filtros">
       <input type="search" id="q" placeholder="Buscar actividad, monitor, sala o descripcion…  ( / )">
-      <select id="actividad"><option value="">Toda actividad</option></select>
-      <select id="sala"><option value="">Toda sala</option></select>
-      <select id="monitor"><option value="">Todo monitor</option></select>
+      <div class="multi" id="f-actividad"></div>
+      <div class="multi" id="f-sala"></div>
+      <div class="multi" id="f-monitor"></div>
       <div class="horas">
         <input type="time" id="h1" title="Desde"><span>–</span><input type="time" id="h2" title="Hasta">
       </div>
@@ -206,6 +248,7 @@
       <div class="cargando" id="estado" style="text-align:right;align-self:center"></div>
     </div>
 
+    <div class="chips" id="chips"></div>
     <div class="dias" id="dias-chips"></div>
   </div>
 </header>
@@ -250,14 +293,112 @@ const hoyISO = () => iso(new Date());
 const plano = s => String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 const minutos = hhmm => { const [h, m] = String(hhmm).split(":"); return (+h) * 60 + (+m || 0); };
 
+/* ------------------------- filtro de seleccion multiple --------------------- */
+
+function crearMulti(id, etiqueta, singular, plural) {
+  const raiz = document.getElementById(id);
+  raiz.innerHTML =
+    `<button type="button" class="btn disparador" aria-haspopup="listbox" aria-expanded="false">
+       <span class="txt"></span><span class="flecha">&#9660;</span>
+     </button>
+     <div class="panel" role="listbox">
+       <input type="search" class="buscador" placeholder="Filtrar ${plural}…">
+       <div class="opciones"></div>
+     </div>`;
+
+  const boton = raiz.querySelector(".disparador");
+  const texto = raiz.querySelector(".txt");
+  const buscador = raiz.querySelector(".buscador");
+  const lista = raiz.querySelector(".opciones");
+  let opciones = [], elegidos = new Set(), alCambiar = () => {};
+
+  const rotular = () => {
+    const n = elegidos.size;
+    texto.textContent = n === 0 ? etiqueta
+      : n === 1 ? [...elegidos][0]
+      : `${n} ${plural}`;
+    raiz.classList.toggle("activo", n > 0);
+  };
+
+  function pintarOpciones() {
+    const q = plano(buscador.value);
+    const visibles = opciones.filter(o => !q || plano(o.nombre).includes(q));
+    lista.innerHTML = visibles.length
+      ? visibles.map(o => `<label class="opcion">
+           <input type="checkbox" value="${esc(o.nombre)}"${elegidos.has(o.nombre) ? " checked" : ""}>
+           <span>${esc(o.nombre)}</span><span class="n">${o.clases}</span>
+         </label>`).join("")
+      : `<div class="vacio">Sin coincidencias</div>`;
+    lista.querySelectorAll("input").forEach(i => i.onchange = () => {
+      i.checked ? elegidos.add(i.value) : elegidos.delete(i.value);
+      rotular(); alCambiar();
+    });
+  }
+
+  const abrir = () => {
+    document.querySelectorAll(".multi.abierto").forEach(m => m !== raiz && cerrarMulti(m));
+    raiz.classList.add("abierto"); boton.setAttribute("aria-expanded", "true");
+    buscador.value = ""; pintarOpciones(); buscador.focus();
+  };
+  boton.onclick = () => raiz.classList.contains("abierto") ? cerrarMulti(raiz) : abrir();
+  buscador.oninput = pintarOpciones;
+
+  const api = {
+    raiz,
+    valores: () => [...elegidos],
+    opciones(nuevas) {
+      opciones = nuevas;
+      // Si una opcion elegida desaparece del catalogo, deja de filtrar por ella.
+      const validas = new Set(nuevas.map(o => o.nombre));
+      for (const v of elegidos) if (!validas.has(v)) elegidos.delete(v);
+      rotular();
+      if (raiz.classList.contains("abierto")) pintarOpciones();
+    },
+    quitar(valor) { elegidos.delete(valor); rotular(); if (raiz.classList.contains("abierto")) pintarOpciones(); },
+    limpiar() { elegidos.clear(); rotular(); if (raiz.classList.contains("abierto")) pintarOpciones(); },
+    alCambiar(fn) { alCambiar = fn; },
+    etiqueta: singular,
+  };
+  rotular();
+  return api;
+}
+
+function cerrarMulti(raiz) {
+  raiz.classList.remove("abierto");
+  raiz.querySelector(".disparador").setAttribute("aria-expanded", "false");
+}
+
+const MULTIS = {
+  actividad: crearMulti("f-actividad", "Toda actividad", "actividad", "actividades"),
+  sala:      crearMulti("f-sala",      "Toda sala",      "sala",      "salas"),
+  monitor:   crearMulti("f-monitor",   "Todo monitor",   "monitor",   "monitores"),
+};
+
+document.addEventListener("click", e => {
+  if (!e.target.closest(".multi")) document.querySelectorAll(".multi.abierto").forEach(cerrarMulti);
+});
+
+function pintarChips() {
+  const trozos = [];
+  for (const [clave, m] of Object.entries(MULTIS))
+    for (const v of m.valores())
+      trozos.push(`<span class="chip">${esc(v)}
+        <button class="quitar" data-clave="${clave}" data-valor="${esc(v)}" title="Quitar">&times;</button></span>`);
+  const cont = $("#chips");
+  cont.innerHTML = trozos.join("");
+  cont.querySelectorAll(".quitar").forEach(b => b.onclick = () => {
+    MULTIS[b.dataset.clave].quitar(b.dataset.valor); pintarChips(); cargar();
+  });
+}
+
 function estadoFiltros() {
   return {
     desde: $("#desde").value || hoyISO(),
     dias: Number($("#dias").value),
     q: $("#q").value.trim(),
-    actividad: $("#actividad").value,
-    sala: $("#sala").value,
-    monitor: $("#monitor").value,
+    actividad: MULTIS.actividad.valores(),
+    sala: MULTIS.sala.valores(),
+    monitor: MULTIS.monitor.valores(),
     h1: $("#h1").value,
     h2: $("#h2").value,
     proximas: $("#proximas").checked,
@@ -268,9 +409,10 @@ function params(extra = {}) {
   const f = estadoFiltros();
   const p = new URLSearchParams({ desde: f.desde, dias: f.dias });
   if (f.q) p.set("q", f.q);
-  if (f.actividad) p.set("actividad", f.actividad);
-  if (f.sala) p.set("sala", f.sala);
-  if (f.monitor) p.set("monitor", f.monitor);
+  // Un valor por aparicion: actividad=X&actividad=Y (el servidor los une con OR).
+  for (const v of f.actividad) p.append("actividad", v);
+  for (const v of f.sala) p.append("sala", v);
+  for (const v of f.monitor) p.append("monitor", v);
   if (f.h1) p.set("desde_hora", f.h1);
   if (f.h2) p.set("hasta_hora", f.h2);
   if (f.proximas) p.set("proximas", "1");
@@ -284,14 +426,17 @@ function filtrarLocal() {
   const f = estadoFiltros();
   const inicio = f.desde, fin = iso(new Date(new Date(f.desde + "T00:00:00").getTime() + f.dias * 864e5));
   const ahora = new Date();
-  const nq = plano(f.q), na = plano(f.actividad), ns = plano(f.sala), nm = plano(f.monitor);
+  const nq = plano(f.q);
+  const na = f.actividad.map(plano), ns = f.sala.map(plano), nm = f.monitor.map(plano);
+  // Sin valores no filtra; con varios basta con que encaje uno.
+  const encaja = (campo, patrones) => !patrones.length || patrones.some(x => plano(campo).includes(x));
   const min1 = f.h1 ? minutos(f.h1) : null, min2 = f.h2 ? minutos(f.h2) : null;
 
   const ventana = FUENTE.clases.filter(c => c.fecha >= inicio && c.fecha < fin);
   const filtradas = ventana.filter(c => {
-    if (na && !plano(c.nombre).includes(na)) return false;
-    if (ns && !plano(c.sala).includes(ns)) return false;
-    if (nm && !plano(c.monitor).includes(nm)) return false;
+    if (!encaja(c.nombre, na)) return false;
+    if (!encaja(c.sala, ns)) return false;
+    if (!encaja(c.monitor, nm)) return false;
     if (nq && !plano(`${c.nombre} ${c.monitor} ${c.sala} ${c.descripcion}`).includes(nq)) return false;
     const m = minutos(c.hora);
     if (min1 !== null && m < min1) return false;
@@ -332,16 +477,11 @@ const marcarEstado = (n, total) =>
 
 function poblarFiltros() {
   // El catalogo se calcula sobre la ventana completa, asi que las opciones no
-  // cambian al filtrar: basta con conservar lo que hubiera seleccionado.
-  const rellena = (sel, items, etiqueta) => {
-    const previo = sel.value;
-    sel.innerHTML = `<option value="">${etiqueta}</option>` +
-      items.map(i => `<option value="${esc(i.nombre)}">${esc(i.nombre)} (${i.clases})</option>`).join("");
-    sel.value = previo;
-  };
-  rellena($("#actividad"), catalogo.actividades, "Toda actividad");
-  rellena($("#sala"),      catalogo.salas,       "Toda sala");
-  rellena($("#monitor"),   catalogo.monitores,   "Todo monitor");
+  // cambian al filtrar y la seleccion se mantiene entre busquedas.
+  MULTIS.actividad.opciones(catalogo.actividades);
+  MULTIS.sala.opciones(catalogo.salas);
+  MULTIS.monitor.opciones(catalogo.monitores);
+  pintarChips();
 }
 
 /* -------------------------------- pintado ---------------------------------- */
@@ -498,15 +638,21 @@ $("#hoy").onclick = () => { $("#desde").value = hoyISO(); diaActivo = null; carg
 $("#refrescar").onclick = () => cargar(true);
 $("#ics").onclick = () => exportarICS(clases);
 $("#q").oninput = reprogramar;
-["actividad","sala","monitor","h1","h2","proximas"].forEach(id => $("#" + id).onchange = () => cargar());
+["h1","h2","proximas"].forEach(id => $("#" + id).onchange = () => cargar());
+Object.values(MULTIS).forEach(m => m.alCambiar(() => { pintarChips(); cargar(); }));
 $("#limpiar").onclick = () => {
-  ["q","actividad","sala","monitor","h1","h2"].forEach(id => $("#" + id).value = "");
+  ["q","h1","h2"].forEach(id => $("#" + id).value = "");
+  Object.values(MULTIS).forEach(m => m.limpiar());
+  pintarChips();
   $("#proximas").checked = true; diaActivo = null; cargar();
 };
 $("#cerrar").onclick = cerrar;
 $("#velo").onclick = cerrar;
 document.addEventListener("keydown", e => {
-  if (e.key === "Escape") cerrar();
+  if (e.key === "Escape") {
+    const abiertos = document.querySelectorAll(".multi.abierto");
+    if (abiertos.length) abiertos.forEach(cerrarMulti); else cerrar();
+  }
   if (e.key === "/" && document.activeElement !== $("#q")) { e.preventDefault(); $("#q").focus(); }
 });
 

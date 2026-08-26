@@ -17,6 +17,11 @@ from typing import Sequence
 from . import api
 from .api import Clase
 
+def _ahora_granada() -> datetime:
+    """El sello va en hora de Granada aunque se genere en un runner en UTC."""
+    momento = datetime.now(api.MADRID) if api.MADRID else datetime.now()
+    return momento
+
 PLANTILLA = Path(__file__).parent / "static" / "index.html"
 
 # Campos que la interfaz necesita; el resto (incluido el volcado crudo de la
@@ -53,7 +58,7 @@ def _payload(clases: Sequence[Clase]) -> dict:
 
     fechas = sorted({c.fecha for c in clases})
     return {
-        "generado": datetime.now().strftime("%d/%m/%Y %H:%M"),
+        "generado": _ahora_granada().strftime("%d/%m/%Y %H:%M"),
         "rango": [fechas[0].isoformat(), fechas[-1].isoformat()] if fechas else None,
         "catalogo": api.catalogo(clases),
         "descripciones": textos,
@@ -98,7 +103,7 @@ def generar(clases: Sequence[Clase], *, envoltorio: bool = True) -> str:
     html = html.replace("<!--DATOS-->", inyeccion)
     html = html.replace(
         'Datos de <a href="https://agoragranada.provis.es" target="_blank" rel="noreferrer">agoragranada.provis.es</a>.',
-        NOTA.format(sello=datetime.now().strftime("%d/%m/%Y a las %H:%M")),
+        NOTA.format(sello=_ahora_granada().strftime("%d/%m/%Y a las %H:%M")),
     )
     return html if envoltorio else _fragmento(html)
 

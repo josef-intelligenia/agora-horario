@@ -29,6 +29,10 @@ def _params(consulta: dict[str, list[str]]) -> dict:
         valor = consulta.get(clave, [None])[0]
         return valor if valor not in (None, "") else defecto
 
+    def varios(clave):
+        """actividad=X&actividad=Y -> ["X", "Y"]."""
+        return [v for v in consulta.get(clave, []) if v]
+
     dias = uno("dias", "7")
     try:
         dias = max(1, min(int(dias), MAX_DIAS))
@@ -37,9 +41,9 @@ def _params(consulta: dict[str, list[str]]) -> dict:
     return {
         "desde": uno("desde", "hoy"),
         "dias": dias,
-        "actividad": uno("actividad"),
-        "monitor": uno("monitor"),
-        "sala": uno("sala"),
+        "actividad": varios("actividad"),
+        "monitor": varios("monitor"),
+        "sala": varios("sala"),
         "texto": uno("q"),
         "desde_hora": uno("desde_hora"),
         "hasta_hora": uno("hasta_hora"),

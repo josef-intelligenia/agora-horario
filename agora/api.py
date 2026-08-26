@@ -289,12 +289,32 @@ def horario(
 # Filtrado y agrupacion
 # --------------------------------------------------------------------------- #
 
+Criterio = "str | Sequence[str] | None"
+
+
+def _patrones(valor) -> list[str]:
+    """Un criterio puede ser un texto o una lista de textos."""
+    if valor is None:
+        return []
+    if isinstance(valor, str):
+        valor = [valor]
+    return [sin_acentos(v) for v in valor if v]
+
+
+def _encaja(campo: str, patrones: list[str]) -> bool:
+    """Sin patrones no filtra; con varios basta con que encaje uno (OR)."""
+    if not patrones:
+        return True
+    plano = sin_acentos(campo)
+    return any(p in plano for p in patrones)
+
+
 def filtrar(
     clases: Iterable[Clase],
     *,
-    actividad: str | None = None,
-    monitor: str | None = None,
-    sala: str | None = None,
+    actividad=None,
+    monitor=None,
+    sala=None,
     texto: str | None = None,
     desde_hora: str | None = None,
     hasta_hora: str | None = None,
@@ -302,7 +322,11 @@ def filtrar(
     solo_proximas: bool = False,
     ahora: datetime | None = None,
 ) -> list[Clase]:
-    """Todos los criterios se combinan con AND; los de texto ignoran tildes."""
+    """Los criterios se combinan con AND; dentro de cada uno, con OR.
+
+    ``actividad``, ``monitor`` y ``sala`` aceptan un texto o una lista.
+    Las comparaciones de texto son parciales y no distinguen mayusculas ni tildes.
+    """
     ahora = ahora or datetime.now()
 
     def hhmm(valor: str) -> int:
@@ -313,18 +337,16 @@ def filtrar(
 
     lim_min = hhmm(desde_hora) if desde_hora else None
     lim_max = hhmm(hasta_hora) if hasta_hora else None
-    n_act = sin_acentos(actividad) if actividad else None
-    n_mon = sin_acentos(monitor) if monitor else None
-    n_sala = sin_acentos(sala) if sala else None
+    p_act, p_mon, p_sala = _patrones(actividad), _patrones(monitor), _patrones(sala)
     n_txt = sin_acentos(texto) if texto else None
 
     salida = []
     for c in clases:
-        if n_act and n_act not in sin_acentos(c.nombre):
+        if not _encaja(c.nombre, p_act):
             continue
-        if n_mon and n_mon not in sin_acentos(c.monitor):
+        if not _encaja(c.monitor, p_mon):
             continue
-        if n_sala and n_sala not in sin_acentos(c.sala):
+        if not _encaja(c.sala, p_sala):
             continue
         if n_txt and n_txt not in sin_acentos(f"{c.nombre} {c.monitor} {c.sala} {c.descripcion}"):
             continue

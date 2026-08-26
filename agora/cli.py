@@ -132,9 +132,12 @@ def resumen_catalogo(clases: list[Clase], p: Pintor) -> str:
 def construir_parser() -> argparse.ArgumentParser:
     padre = argparse.ArgumentParser(add_help=False)
     f = padre.add_argument_group("filtros")
-    f.add_argument("-a", "--actividad", help="nombre de actividad (parcial, sin distinguir tildes)")
-    f.add_argument("-m", "--monitor", help="nombre del monitor")
-    f.add_argument("-s", "--sala", help="sala o zona")
+    f.add_argument("-a", "--actividad", action="append", metavar="TEXTO",
+                   help="actividad (parcial, sin tildes); repetible para varias")
+    f.add_argument("-m", "--monitor", action="append", metavar="TEXTO",
+                   help="monitor; repetible para varios")
+    f.add_argument("-s", "--sala", action="append", metavar="TEXTO",
+                   help="sala o zona; repetible para varias")
     f.add_argument("-b", "--buscar", help="texto libre en nombre, monitor, sala o descripcion")
     f.add_argument("--desde-hora", metavar="HH:MM", help="no mostrar clases que empiecen antes")
     f.add_argument("--hasta-hora", metavar="HH:MM", help="no mostrar clases que empiecen despues")
@@ -159,7 +162,7 @@ def construir_parser() -> argparse.ArgumentParser:
         description="Consulta el horario de actividades colectivas de AGORA (We Granada).",
         epilog="Ejemplos:\n"
                "  agora hoy\n"
-               "  agora semana -a pilates\n"
+               "  agora semana -a pilates -a yoga\n"
                "  agora dia manana --desde-hora 18:00\n"
                "  agora rango --desde 2026-09-01 --dias 14 -f ics -o clases.ics\n"
                "  agora web",

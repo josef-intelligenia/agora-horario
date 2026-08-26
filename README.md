@@ -53,12 +53,19 @@ Filtros, combinables entre sí y con cualquier comando (ignoran mayúsculas y ti
 --min-duracion MIN         --proximas
 ```
 
+`-a`, `-m` y `-s` se pueden repetir para pedir varios valores. Dentro de un
+mismo filtro los valores se suman (OR); entre filtros distintos se restringen
+(AND). Así, `-a zumba -a pilates -s "sala 2"` da las clases de zumba **o**
+pilates que además estén **en** la sala 2. La coincidencia es parcial, lo que de
+paso recoge las variantes que el gestor de AGORA arrastra en los nombres
+(`ZUMBA`, `ZUMBA.`, `ZUMBA_`).
+
 Formatos de salida con `-f`: `tabla` (por defecto), `agenda`, `json`,
 `json-crudo` (los 41 campos originales), `csv`, `ics`. Con `-o` se escribe a un
 fichero.
 
 ```
-./horario semana -a pilates --desde-hora 18:00
+./horario semana -a pilates -a yoga --desde-hora 18:00
 ./horario rango --dias 30 -m "teresa" -f ics -o pilates.ics
 ./horario semana -s piscina -f csv -o piscina.csv
 ```
@@ -69,7 +76,9 @@ fichero.
 ./horario web [--puerto 8765] [--host 127.0.0.1] [--no-abrir]
 ```
 
-Filtros en vivo, navegación por semanas, chips por día, panel de detalle con la
+Filtros en vivo con **selección múltiple** en actividad, sala y monitor (cada
+desplegable tiene su buscador y los valores elegidos aparecen como etiquetas
+quitables), navegación por semanas, chips por día, panel de detalle con la
 descripción y los datos crudos, y exportación a calendario de lo que haya
 filtrado. El servidor hace de proxy porque AGORA solo permite CORS desde el
 origen exacto `http://localhost`, sin puerto: el navegador no puede llamar al
