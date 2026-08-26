@@ -95,13 +95,30 @@ endpoint por su cuenta.
 ## Compartir
 
 ```
-./horario publicar --dias 21 -o horario.html      # fichero suelto
+./horario publicar --dias 21 --sitio site                 # sitio instalable (PWA)
+./horario publicar --dias 21 -o horario.html              # un fichero suelto
 ./horario publicar --dias 21 --fragmento -o pagina.html   # para artifact de Claude
 ```
 
-Genera **un solo fichero HTML** con la misma interfaz y los datos incrustados:
-funciona sin servidor, sin conexión y en cualquier hosting estático. Como es una
-instantánea, no se actualiza sola — hay que regenerarla y volver a subirla.
+Los datos van **incrustados en el HTML**: funciona sin servidor, sin conexión y
+en cualquier hosting estático. Como es una instantánea, no se actualiza sola —
+hay que regenerarla y volver a subirla.
+
+Con `--sitio` se genera además el manifiesto, el service worker, los iconos y un
+`robots.txt`, de modo que el navegador ofrece **instalarla como aplicación** (de
+escritorio o de móvil) y se puede consultar sin conexión. El servidor local sirve
+esas mismas piezas, así que desde `localhost` también se puede instalar.
+
+Los iconos están versionados en `agora/static/`; para rehacerlos:
+`python3 herramientas/generar_iconos.py`.
+
+### Cautelas al publicar
+
+El horario de AGORA es público, pero su `robots.txt` excluye a los rastreadores
+y las descripciones de las actividades son textos con autor. Por eso la página
+publicada lleva `noindex` y su propio `robots.txt`, y el cliente se identifica
+con un User-Agent que apunta a este repositorio, para que quien mire los logs
+sepa de dónde viene el tráfico. La descarga es de tres peticiones al día.
 
 ## Publicación automática
 
@@ -125,5 +142,7 @@ workflow apareciese desactivado: `gh workflow enable publicar.yml`.
 | `agora/web.py` | servidor local y proxy JSON/iCalendar |
 | `agora/publicar.py` | generador de la página autocontenida |
 | `agora/exportar.py` | JSON, CSV e iCalendar |
+| `agora/pwa.py` | manifiesto, service worker y robots.txt del sitio |
+| `herramientas/generar_iconos.py` | dibuja los PNG del icono (solo si cambia el diseño) |
 | `.github/workflows/publicar.yml` | regenera y despliega la página cada día |
 | `agora/static/index.html` | la interfaz, en modo servidor o instantánea |

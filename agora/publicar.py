@@ -14,7 +14,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Sequence
 
-from . import api
+from . import api, pwa
 from .api import Clase
 
 def _ahora_granada() -> datetime:
@@ -105,7 +105,7 @@ def escribir_estado(clases: Sequence[Clase], destino: str | Path) -> Path:
     return ruta
 
 
-def generar(clases: Sequence[Clase], *, envoltorio: bool = True) -> str:
+def generar(clases: Sequence[Clase], *, envoltorio: bool = True, pwa_activa: bool = False) -> str:
     if not PLANTILLA.is_file():
         raise api.AgoraError(f"Falta la plantilla {PLANTILLA}")
     html = PLANTILLA.read_text("utf-8")
@@ -122,6 +122,7 @@ def generar(clases: Sequence[Clase], *, envoltorio: bool = True) -> str:
         "</script>"
     )
     html = html.replace("<!--DATOS-->", inyeccion)
+    html = html.replace("<!--PWA-->", pwa.cabecera() if pwa_activa else "")
     html = html.replace(
         'Datos de <a href="https://agoragranada.provis.es" target="_blank" rel="noreferrer">agoragranada.provis.es</a>.',
         NOTA.format(sello=_ahora_granada().strftime("%d/%m/%Y a las %H:%M")),
@@ -134,3 +135,25 @@ def escribir(clases: Sequence[Clase], destino: str | Path, *, envoltorio: bool =
     ruta.parent.mkdir(parents=True, exist_ok=True)
     ruta.write_text(generar(clases, envoltorio=envoltorio), "utf-8")
     return ruta
+
+
+def escribir_sitio(clases: Sequence[Clase], destino: str | Path) -> Path:
+    """Sitio completo e instalable: pagina, manifiesto, service worker e iconos.
+
+    Se separa de ``escribir`` porque el manifiesto y el service worker solo
+    tienen sentido si van acompanados de sus ficheros; un HTML suelto que los
+    referenciase daria 404.
+    """
+    import shutil
+
+    dir_destino = Path(destino).expanduser()
+    dir_destino.mkdir(parents=True, exist_ok=True)
+
+    (dir_destino / "index.html").write_text(
+        generar(clases, envoltorio=True, pwa_activa=True), "utf-8")
+    (dir_destino / "manifest.webmanifest").write_text(pwa.manifiesto(), "utf-8")
+    (dir_destino / "sw.js").write_text(pwa.SERVICE_WORKER, "utf-8")
+    (dir_destino / "robots.txt").write_text(pwa.ROBOTS, "utf-8")
+    for icono in pwa.ICONOS:
+        shutil.copyfile(PLANTILLA.parent / icono, dir_destino / icono)
+    return dir_destino

@@ -29,17 +29,18 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Generar la pagina
+      - name: Generar el sitio
         run: |
           python -m agora publicar --dias 21 --sin-cache \
-            -o site/index.html --estado ultima-actualizacion.json
+            --sitio site --estado ultima-actualizacion.json
 
       - name: Comprobar que tiene contenido
         run: |
           test -s site/index.html
           grep -q '"clases":\[{' site/index.html || {
             echo "::error::La pagina se genero sin clases"; exit 1; }
-          echo "Generada: $(du -h site/index.html | cut -f1)"
+          test -s site/manifest.webmanifest && test -s site/sw.js && test -s site/robots.txt
+          echo "Generado: $(du -sh site | cut -f1) en $(ls site | wc -l) ficheros"
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

@@ -190,6 +190,8 @@ def construir_parser() -> argparse.ArgumentParser:
                            help="generar una pagina HTML autocontenida para compartir")
     p_pub.add_argument("--desde", default="hoy")
     p_pub.add_argument("--dias", type=int, default=14)
+    p_pub.add_argument("--sitio", metavar="DIRECTORIO",
+                       help="generar un sitio completo e instalable (PWA) en vez de un HTML suelto")
     p_pub.add_argument("--estado", metavar="FICHERO",
                        help="escribir tambien un JSON con el resumen de la publicacion")
     p_pub.add_argument("--fragmento", action="store_true",
@@ -269,11 +271,16 @@ def main(argv: list[str] | None = None) -> int:
         return 130
 
     if args.comando == "publicar":
-        from .publicar import escribir
-        ruta = escribir(clases, args.salida or "horario-agora.html",
-                        envoltorio=not args.fragmento)
-        kb = ruta.stat().st_size / 1024
-        print(f"{ruta}  ({len(clases)} clases, {kb:.0f} KB)")
+        from .publicar import escribir, escribir_sitio
+        if args.sitio:
+            carpeta = escribir_sitio(clases, args.sitio)
+            kb = sum(f.stat().st_size for f in carpeta.iterdir()) / 1024
+            print(f"{carpeta}/  ({len(clases)} clases, {len(list(carpeta.iterdir()))} ficheros, {kb:.0f} KB)")
+        else:
+            ruta = escribir(clases, args.salida or "horario-agora.html",
+                            envoltorio=not args.fragmento)
+            kb = ruta.stat().st_size / 1024
+            print(f"{ruta}  ({len(clases)} clases, {kb:.0f} KB)")
         if args.estado:
             from .publicar import escribir_estado
             print(escribir_estado(clases, args.estado))

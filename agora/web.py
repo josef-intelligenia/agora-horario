@@ -17,7 +17,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import api, exportar
+from . import api, exportar, pwa
 from .api import AgoraError
 
 ESTATICOS = Path(__file__).parent / "static"
@@ -106,11 +106,22 @@ class Handler(BaseHTTPRequestHandler):
         consulta = parse_qs(ruta.query)
         try:
             if ruta.path in ("/", "/index.html"):
-                return self._estatico("index.html", "text/html; charset=utf-8")
+                # En local tambien se puede instalar: localhost cuenta como origen seguro.
+                pagina = (ESTATICOS / "index.html").read_text("utf-8")
+                pagina = pagina.replace("<!--PWA-->", pwa.cabecera())
+                return self._responder(pagina.encode("utf-8"), "text/html; charset=utf-8")
             if ruta.path == "/api/clases":
                 return self._api_clases(consulta)
             if ruta.path == "/api/ics":
                 return self._api_ics(consulta)
+            if ruta.path == "/manifest.webmanifest":
+                return self._responder(pwa.manifiesto().encode("utf-8"),
+                                       "application/manifest+json; charset=utf-8")
+            if ruta.path == "/sw.js":
+                return self._responder(pwa.SERVICE_WORKER.encode("utf-8"),
+                                       "text/javascript; charset=utf-8")
+            if ruta.path.lstrip("/") in pwa.ICONOS:
+                return self._estatico(ruta.path.lstrip("/"), "image/png")
             if ruta.path == "/api/salud":
                 return self._json({"ok": True, "hoy": date.today().isoformat()})
             return self._error("Ruta no encontrada", HTTPStatus.NOT_FOUND)

@@ -30,7 +30,9 @@ except Exception:  # pragma: no cover - entornos sin tzdata
 BASE = "https://agoragranada.provis.es"
 ENDPOINT = BASE + "/ActividadesColectivas/ClasesColectivasTimeLinePublic"
 DIAS_POR_PETICION = 7
-USER_AGENT = "agora-horario/1.0 (+consulta de horario publico)"
+# Identificable a proposito: si en AGORA revisan sus logs, sabran quien es y
+# como localizarnos antes que bloquear a ciegas. Sin datos personales.
+USER_AGENT = "agora-horario/1.1 (+https://github.com/josef-intelligenia/agora-horario)"
 
 CACHE_DIR = Path.home() / ".cache" / "agora-horario"
 CACHE_TTL = 900  # segundos
