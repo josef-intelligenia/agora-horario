@@ -80,7 +80,15 @@ Filtros en vivo con **selección múltiple** en actividad, sala y monitor (cada
 desplegable tiene su buscador y los valores elegidos aparecen como etiquetas
 quitables), navegación por semanas, chips por día, panel de detalle con la
 descripción y los datos crudos, y exportación a calendario de lo que haya
-filtrado. El servidor hace de proxy porque AGORA solo permite CORS desde el
+filtrado.
+
+En pantallas estrechas la cabecera es pegajosa y los filtros se la comían: ahora
+se pliegan tras un botón **Filtros** con el número de criterios activos, y al
+abrirse flotan sobre la lista en vez de empujarla. La cabecera pasa de ocupar el
+55 % de la pantalla de un móvil a un 23 %.
+
+El botón de tema recorre tres estados —el del navegador, claro fijo y oscuro
+fijo— y recuerda la elección en el navegador de quien mira. El servidor hace de proxy porque AGORA solo permite CORS desde el
 origen exacto `http://localhost`, sin puerto: el navegador no puede llamar al
 endpoint por su cuenta.
 
