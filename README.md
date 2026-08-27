@@ -45,6 +45,10 @@ Las respuestas se cachean 15 minutos en `~/.cache/agora-horario/`.
 ./horario info                        # catálogo de actividades, salas y monitores
 ```
 
+Los desplegables de la interfaz salen en orden alfabético, ignorando tildes. El
+resumen de `info`, en cambio, ordena por frecuencia, que es lo que se quiere ver
+ahí.
+
 Filtros, combinables entre sí y con cualquier comando (ignoran mayúsculas y tildes):
 
 ```
@@ -53,7 +57,8 @@ Filtros, combinables entre sí y con cualquier comando (ignoran mayúsculas y ti
 --min-duracion MIN         --proximas
 ```
 
-`-a`, `-m` y `-s` se pueden repetir para pedir varios valores. Dentro de un
+`-m` busca tanto por el nombre corto como por el apellido, aunque el apellido no
+se muestre. `-a`, `-m` y `-s` se pueden repetir para pedir varios valores. Dentro de un
 mismo filtro los valores se suman (OR); entre filtros distintos se restringen
 (AND). Así, `-a zumba -a pilates -s "sala 2"` da las clases de zumba **o**
 pilates que además estén **en** la sala 2. La coincidencia es parcial, lo que de
@@ -103,6 +108,14 @@ endpoint por su cuenta.
 Los datos van **incrustados en el HTML**: funciona sin servidor, sin conexión y
 en cualquier hosting estático. Como es una instantánea, no se actualiza sola —
 hay que regenerarla y volver a subirla.
+
+De los monitores solo se publica el **nombre de pila**. Si dos comparten nombre
+se añade la inicial del apellido (`MARIA G.`, `MARIA L.`), y si también coincide
+la inicial, el apellido entero. Es un cálculo sobre el conjunto: que un nombre
+choque o no depende de quién más haya en la ventana consultada. El nombre
+completo se conserva en `Clase.monitor_completo`, que la app local usa para
+buscar y para el panel de datos crudos, y que **no se incrusta** en la página
+publicada.
 
 Con `--sitio` se genera además el manifiesto, el service worker, los iconos y un
 `robots.txt`, de modo que el navegador ofrece **instalarla como aplicación** (de

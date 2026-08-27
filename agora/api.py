@@ -67,7 +67,8 @@ class Clase:
     duracion_min: int
     sala: str
     sala_id: int
-    monitor: str
+    monitor: str            # el que se muestra: nombre de pila, o "NOMBRE I." si choca
+    monitor_completo: str   # nombre y apellidos, como los da AGORA
     monitor_id: int
     capacidad: int
     reservas: int
@@ -237,7 +238,8 @@ def _a_clase(c: dict[str, Any]) -> Clase | None:
         duracion_min=max(int((fin - inicio).total_seconds() // 60), 0),
         sala=_limpiar(c.get("nombreZona")) or "(sin sala)",
         sala_id=int(c.get("Zona") or 0),
-        monitor=monitor or "(sin asignar)",
+        monitor=monitor or "(sin asignar)",     # lo afina _acortar_monitores
+        monitor_completo=monitor or "(sin asignar)",
         monitor_id=int(c.get("IDTrabajador") or 0),
         capacidad=int(c.get("Capacidad") or 0),
         reservas=int(c.get("ReservasHechas") or 0),
@@ -252,6 +254,49 @@ def _a_clase(c: dict[str, Any]) -> Clase | None:
     )
 
 
+def _primer_nombre(completo: str) -> str:
+    return completo.split(" ")[0] if completo else "(sin asignar)"
+
+
+def _primer_apellido(completo: str) -> str:
+    partes = completo.split(" ")
+    return partes[1] if len(partes) > 1 else ""
+
+
+def _acortar_monitores(clases: Sequence[Clase]) -> None:
+    """Deja en ``monitor`` solo el nombre de pila.
+
+    Publicar el nombre completo de los trabajadores es mas dato personal del que
+    hace falta para saber quien da una clase. Solo cuando dos monitores distintos
+    comparten nombre se anade la inicial del apellido para poder distinguirlos, y
+    si tambien coincide la inicial, el apellido entero.
+
+    Necesita el conjunto: si un nombre choca o no depende de quien mas haya.
+    """
+    por_nombre: dict[str, dict[int, str]] = {}
+    for c in clases:
+        nombre = _primer_nombre(c.monitor_completo)
+        por_nombre.setdefault(nombre, {})[c.monitor_id] = c.monitor_completo
+
+    etiquetas: dict[int, str] = {}
+    for nombre, personas in por_nombre.items():
+        if len(personas) == 1:
+            etiquetas.update({i: nombre for i in personas})
+            continue
+        def con_punto(comp: str) -> str:
+            inicial = _primer_apellido(comp)[:1]
+            return f"{nombre} {inicial}." if inicial else nombre
+
+        con_inicial = {i: con_punto(comp) for i, comp in personas.items()}
+        repetidas = {v for v in con_inicial.values() if list(con_inicial.values()).count(v) > 1}
+        for i, comp in personas.items():
+            etiquetas[i] = (f"{nombre} {_primer_apellido(comp)}".strip()
+                            if con_inicial[i] in repetidas else con_inicial[i])
+
+    for c in clases:
+        c.monitor = etiquetas.get(c.monitor_id) or _primer_nombre(c.monitor_completo)
+
+
 def clases_desde(dia: date, *, ttl: int = CACHE_TTL, timeout: float = 20.0) -> list[Clase]:
     """Clases de la ventana de 7 dias que abre ``dia`` (tal cual las da el servidor)."""
     crudos = _leer_cache(dia, ttl)
@@ -259,6 +304,7 @@ def clases_desde(dia: date, *, ttl: int = CACHE_TTL, timeout: float = 20.0) -> l
         crudos = _extraer_crudos(_descargar(dia, timeout))
         _escribir_cache(dia, crudos)
     clases = [cl for cl in map(_a_clase, crudos) if cl is not None]
+    _acortar_monitores(clases)
     clases.sort(key=lambda c: (c.inicio, c.sala, c.nombre))
     return clases
 
@@ -283,6 +329,9 @@ def horario(
         ancla += timedelta(days=DIAS_POR_PETICION)
 
     dentro = [c for c in vistas.values() if inicio <= c.fecha < hasta]
+    # Se recalcula sobre el conjunto unido: puede haber colisiones que no se
+    # veian dentro de una sola ventana de siete dias.
+    _acortar_monitores(dentro)
     dentro.sort(key=lambda c: (c.inicio, c.sala, c.nombre))
     return dentro
 
@@ -346,7 +395,7 @@ def filtrar(
     for c in clases:
         if not _encaja(c.nombre, p_act):
             continue
-        if not _encaja(c.monitor, p_mon):
+        if p_mon and not (_encaja(c.monitor, p_mon) or _encaja(c.monitor_completo, p_mon)):
             continue
         if not _encaja(c.sala, p_sala):
             continue
@@ -372,8 +421,16 @@ def por_dia(clases: Sequence[Clase]) -> list[tuple[date, list[Clase]]]:
     return sorted(grupos.items())
 
 
-def catalogo(clases: Sequence[Clase]) -> dict[str, list[dict[str, Any]]]:
-    """Valores distintos con su numero de clases, para poblar filtros."""
+def catalogo(clases: Sequence[Clase], *, orden: str = "alfabetico") -> dict[str, list[dict[str, Any]]]:
+    """Valores distintos con su numero de clases, para poblar filtros.
+
+    ``alfabetico`` para buscar un valor concreto en una lista, que es lo que se
+    hace en los desplegables; ``frecuencia`` para ver de un vistazo que se
+    programa mas, que es lo que interesa en el resumen del catalogo.
+    """
+    if orden not in ("alfabetico", "frecuencia"):
+        raise AgoraError(f"Orden desconocido: {orden!r}")
+
     def cuenta(clave, color=None) -> list[dict[str, Any]]:
         acc: dict[str, dict[str, Any]] = {}
         for c in clases:
@@ -382,7 +439,10 @@ def catalogo(clases: Sequence[Clase]) -> dict[str, list[dict[str, Any]]]:
             entrada["clases"] += 1
             if color:
                 entrada["color"] = color(c)
-        return sorted(acc.values(), key=lambda e: (-e["clases"], e["nombre"]))
+        if orden == "frecuencia":
+            return sorted(acc.values(), key=lambda e: (-e["clases"], sin_acentos(e["nombre"])))
+        # Sin tildes en la clave: ACTIVATE y ACTÍVATE deben caer juntas.
+        return sorted(acc.values(), key=lambda e: sin_acentos(e["nombre"]))
 
     return {
         "actividades": cuenta(lambda c: c.nombre_norm, lambda c: c.color),

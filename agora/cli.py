@@ -114,7 +114,7 @@ def agenda(clases: list[Clase], p: Pintor) -> str:
 
 
 def resumen_catalogo(clases: list[Clase], p: Pintor) -> str:
-    cat = api.catalogo(clases)
+    cat = api.catalogo(clases, orden="frecuencia")
     partes = [p.negrita(f"Catalogo sobre {len(clases)} clases")]
     for titulo, clave in (("Actividades", "actividades"), ("Salas", "salas"), ("Monitores", "monitores")):
         partes.append("")
