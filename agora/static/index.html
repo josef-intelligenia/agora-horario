@@ -131,6 +131,19 @@
 
   .chips{display:flex;flex-wrap:wrap;gap:6px;padding:0 0 12px}
   .chips:empty{display:none}
+  .chip{
+    display:inline-flex; align-items:center; gap:2px;
+    background:var(--acento-suave); border:1px solid var(--acento);
+    border-radius:999px; padding:3px 5px 3px 11px; font-size:12.5px;
+  }
+  .chip .quitar{
+    /* appearance:none ademas de quitar borde y fondo: sin el, algunos
+       navegadores siguen pintando el boton con su aspecto propio. */
+    appearance:none; -webkit-appearance:none;
+    border:0; background:none; color:var(--suave); cursor:pointer;
+    font-size:16px; line-height:1; padding:0 5px;
+  }
+  .chip .quitar:hover{color:var(--texto)}
 
   /* ---------- panel de filtros plegable ---------- */
   .alternar{display:none}                 /* solo hace falta cuando puede plegarse */
@@ -252,7 +265,7 @@
     .nav-fecha{flex:1 1 auto;min-width:0;gap:5px}
     /* La fecha necesita entera "dd/mm/aaaa"; lo que sobra sale del resto. */
     .nav-fecha input[type=date]{flex:1 1 auto;min-width:112px;width:auto}
-    .nav-fecha select{padding:7px 2px;font-size:13px}
+    .nav-fecha select{padding:7px 1px}   /* 16px como el resto: iOS amplia por debajo */
     .nav-fecha .icono{padding:7px 9px}
     #refrescar{display:none}               /* recargar es cosa de escritorio */
 
@@ -263,6 +276,11 @@
       padding:12px 14px 4px; background:var(--panel);
       border-bottom:1px solid var(--linea); box-shadow:var(--sombra);
     }
+    /* Safari en iOS amplia la pagina al enfocar un campo de menos de 16px.
+       Subirlos a 16 lo evita, que es la unica forma fiable de hacerlo. */
+    input,select,textarea{font-size:16px}
+    .multi .panel{max-height:min(330px,45vh)}   /* que quepa con el teclado */
+    .chip .quitar{padding:2px 7px}              /* objetivo tactil decente */
     .filtros{grid-template-columns:1fr;gap:8px;padding-bottom:10px}
     .filtros:last-of-type{grid-template-columns:auto 1fr;align-items:center}
     .dias{padding-bottom:10px;gap:6px}
@@ -429,7 +447,11 @@ function crearMulti(id, etiqueta, singular, plural) {
   const abrir = () => {
     document.querySelectorAll(".multi.abierto").forEach(m => m !== raiz && cerrarMulti(m));
     raiz.classList.add("abierto"); boton.setAttribute("aria-expanded", "true");
-    buscador.value = ""; pintarOpciones(); buscador.focus();
+    buscador.value = ""; pintarOpciones();
+    // En movil enfocar abre el teclado, que encoge la ventana y descoloca la
+    // pagina antes de que hayas visto siquiera la lista. Se deja para quien
+    // toque el buscador a proposito.
+    if (!matchMedia("(max-width:720px)").matches) buscador.focus();
   };
   boton.onclick = () => raiz.classList.contains("abierto") ? cerrarMulti(raiz) : abrir();
   buscador.oninput = pintarOpciones;
