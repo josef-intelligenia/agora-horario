@@ -159,12 +159,18 @@
   .dia-chip.hoy .num{color:var(--acento)}
 
   /* ---------- lista ---------- */
-  main{padding:18px 0 60px}
+  /* main.contenedor y no main: .contenedor ya fija el padding y, siendo clase,
+     le gana a un selector de elemento. */
+  main.contenedor{padding-top:22px;padding-bottom:60px}
   .grupo{margin-bottom:26px}
   .grupo h2{
     font:600 13px/1.2 var(--display); text-transform:uppercase; letter-spacing:.12em; color:var(--tenue);
-    margin:0 0 10px; padding-bottom:8px; border-bottom:1px solid var(--linea);
-    position:sticky; top:0;
+    margin:0 0 10px; padding:6px 0 8px; border-bottom:1px solid var(--linea);
+    /* Se queda justo debajo de la cabecera, que es pegajosa y de altura
+       variable; el alto lo publica el guion en --alto-cabecera. Con fondo
+       propio y por debajo de ella en z-index, para no transparentarse ni
+       taparla. */
+    position:sticky; top:var(--alto-cabecera,0px); z-index:20; background:var(--bg);
   }
   .tarjetas{display:grid;gap:8px}
   .clase{
@@ -706,6 +712,18 @@ async function exportarICS(lista, nombre = "agora-clases.ics") {
 }
 
 /* --------------------------------- controles -------------------------------- */
+
+/* --------------- alto de la cabecera, para el titulo pegajoso --------------- */
+
+// Cambia al plegar filtros, al rotar el movil o al aparecer las etiquetas, asi
+// que se observa en vez de medirlo una sola vez.
+const cabecera = document.querySelector("header");
+const medirCabecera = () =>
+  document.documentElement.style.setProperty(
+    "--alto-cabecera", Math.round(cabecera.getBoundingClientRect().height) + "px");
+medirCabecera();
+if (window.ResizeObserver) new ResizeObserver(medirCabecera).observe(cabecera);
+else addEventListener("resize", medirCabecera);
 
 /* ------------------------- panel de filtros plegable ------------------------ */
 
