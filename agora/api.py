@@ -254,47 +254,72 @@ def _a_clase(c: dict[str, Any]) -> Clase | None:
     )
 
 
-def _primer_nombre(completo: str) -> str:
-    return completo.split(" ")[0] if completo else "(sin asignar)"
+def _partes(completo: str) -> tuple[str, list[str]]:
+    """Separa "MARIA GONZALEZ LOPEZ" en ("MARIA", ["GONZALEZ", "LOPEZ"])."""
+    trozos = completo.split(" ") if completo else []
+    return (trozos[0] if trozos else "(sin asignar)"), trozos[1:]
 
 
-def _primer_apellido(completo: str) -> str:
-    partes = completo.split(" ")
-    return partes[1] if len(partes) > 1 else ""
+def _etiquetar(nombre: str, gente: dict[int, list[str]]) -> dict[int, str]:
+    """Etiqueta a quienes comparten nombre de pila, revelando lo menos posible.
+
+    Se recorta el primer apellido letra a letra hasta poder distinguirlos
+    (``MARIA G.``, y si hace falta ``MARIA GO.`` frente a ``MARIA GA.``), pero
+    **nunca hasta el apellido entero**: siempre queda al menos la ultima letra.
+
+    Quien comparte tambien el primer apellido no puede distinguirse por el, asi
+    que pasa a recortar el segundo. Si tampoco lo hay, dos personas se quedan con
+    la misma etiqueta: separarlas exigiria publicar justo lo que se evita.
+    """
+    if len(gente) == 1:
+        return {pid: nombre for pid in gente}
+
+    repeticiones: dict[str, int] = {}
+    for apellidos in gente.values():
+        primero = apellidos[0] if apellidos else ""
+        repeticiones[primero] = repeticiones.get(primero, 0) + 1
+
+    fuente = {}
+    for pid, apellidos in gente.items():
+        primero = apellidos[0] if apellidos else ""
+        if primero and repeticiones[primero] == 1:
+            fuente[pid] = primero
+        else:
+            fuente[pid] = apellidos[1] if len(apellidos) > 1 else ""
+
+    topes = {pid: max(1, len(f) - 1) for pid, f in fuente.items()}
+    etiquetas = {pid: nombre for pid in gente}
+    for letras in range(1, max(topes.values(), default=0) + 1):
+        # La unicidad se juzga sobre el recorte y no sobre la etiqueta: si no,
+        # "MARTI" y "MARTI." pasarian por distintos siendo ilegibles.
+        recortes = {pid: fuente[pid][:min(letras, topes[pid])] for pid in gente}
+        etiquetas = {
+            pid: f"{nombre} {r}" + ("" if r == fuente[pid] else ".") if r else nombre
+            for pid, r in recortes.items()
+        }
+        if len(set(recortes.values())) == len(recortes):
+            break
+    return etiquetas
 
 
 def _acortar_monitores(clases: Sequence[Clase]) -> None:
-    """Deja en ``monitor`` solo el nombre de pila.
+    """Deja en ``monitor`` el nombre de pila, con el minimo apellido necesario.
 
     Publicar el nombre completo de los trabajadores es mas dato personal del que
-    hace falta para saber quien da una clase. Solo cuando dos monitores distintos
-    comparten nombre se anade la inicial del apellido para poder distinguirlos, y
-    si tambien coincide la inicial, el apellido entero.
-
-    Necesita el conjunto: si un nombre choca o no depende de quien mas haya.
+    hace falta para saber quien da una clase. Necesita el conjunto: que un nombre
+    choque o no depende de quien mas haya.
     """
-    por_nombre: dict[str, dict[int, str]] = {}
+    por_nombre: dict[str, dict[int, list[str]]] = {}
     for c in clases:
-        nombre = _primer_nombre(c.monitor_completo)
-        por_nombre.setdefault(nombre, {})[c.monitor_id] = c.monitor_completo
+        nombre, apellidos = _partes(c.monitor_completo)
+        por_nombre.setdefault(nombre, {})[c.monitor_id] = apellidos
 
     etiquetas: dict[int, str] = {}
-    for nombre, personas in por_nombre.items():
-        if len(personas) == 1:
-            etiquetas.update({i: nombre for i in personas})
-            continue
-        def con_punto(comp: str) -> str:
-            inicial = _primer_apellido(comp)[:1]
-            return f"{nombre} {inicial}." if inicial else nombre
-
-        con_inicial = {i: con_punto(comp) for i, comp in personas.items()}
-        repetidas = {v for v in con_inicial.values() if list(con_inicial.values()).count(v) > 1}
-        for i, comp in personas.items():
-            etiquetas[i] = (f"{nombre} {_primer_apellido(comp)}".strip()
-                            if con_inicial[i] in repetidas else con_inicial[i])
+    for nombre, gente in por_nombre.items():
+        etiquetas.update(_etiquetar(nombre, gente))
 
     for c in clases:
-        c.monitor = etiquetas.get(c.monitor_id) or _primer_nombre(c.monitor_completo)
+        c.monitor = etiquetas.get(c.monitor_id) or _partes(c.monitor_completo)[0]
 
 
 def clases_desde(dia: date, *, ttl: int = CACHE_TTL, timeout: float = 20.0) -> list[Clase]:

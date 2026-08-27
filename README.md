@@ -109,13 +109,24 @@ Los datos van **incrustados en el HTML**: funciona sin servidor, sin conexión y
 en cualquier hosting estático. Como es una instantánea, no se actualiza sola —
 hay que regenerarla y volver a subirla.
 
-De los monitores solo se publica el **nombre de pila**. Si dos comparten nombre
-se añade la inicial del apellido (`MARIA G.`, `MARIA L.`), y si también coincide
-la inicial, el apellido entero. Es un cálculo sobre el conjunto: que un nombre
-choque o no depende de quién más haya en la ventana consultada. El nombre
-completo se conserva en `Clase.monitor_completo`, que la app local usa para
-buscar y para el panel de datos crudos, y que **no se incrusta** en la página
-publicada.
+De los monitores solo se publica el **nombre de pila**, con el mínimo apellido
+necesario para distinguirlos:
+
+| Situación | Etiqueta |
+| --- | --- |
+| Nombre único | `ILDE` |
+| Nombre repetido | `MARIA G.` · `MARIA L.` |
+| Coincide también la inicial | `MARIA GO.` · `MARIA GA.` |
+| Coincide el primer apellido entero | pasa al segundo: `MARIA L.` · `MARIA R.` |
+| Coinciden nombre y apellidos | misma etiqueta: son indistinguibles |
+
+**Nunca se publica un apellido completo**: el recorte siempre deja al menos la
+última letra. Es un cálculo sobre el conjunto, no sobre cada clase — que un
+nombre choque o no depende de quién más haya en la ventana consultada.
+
+El nombre completo se conserva en `Clase.monitor_completo`, que la app local usa
+para buscar y para el panel de datos crudos, y que **no se incrusta** en la
+página publicada.
 
 Con `--sitio` se genera además el manifiesto, el service worker, los iconos y un
 `robots.txt`, de modo que el navegador ofrece **instalarla como aplicación** (de
