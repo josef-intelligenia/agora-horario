@@ -18,6 +18,9 @@
     --acento:#0E7C7B; --acento-suave:#DDF0EF;
     --sombra:0 1px 2px rgba(12,32,31,.06), 0 8px 24px rgba(12,32,31,.07);
     --radio:12px;
+    /* Normalmente el titulo del dia se ancla bajo la cabecera; cuando esta deja
+       de estar clavada (filtros abiertos en movil) se ancla arriba del todo. */
+    --tope-titulo:var(--alto-cabecera,0px);
     --display:"Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
     --cuerpo:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     --cifras:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
@@ -156,7 +159,9 @@
   }
   .insignia[hidden]{display:none}   /* si no, el display de arriba gana al atributo */
   .alternar[aria-expanded="true"]{border-color:var(--acento);background:var(--acento-suave)}
+  .alternar .flecha{margin-left:6px;font-size:10px;color:var(--tenue)}
   #panel-filtros[hidden]{display:none}
+  #ver-resultados{display:none}   /* en escritorio los filtros no se pliegan */
   @media (min-width:721px){ #panel-filtros[hidden]{display:block} }
 
   /* ---------- dias ---------- */
@@ -183,7 +188,7 @@
        variable; el alto lo publica el guion en --alto-cabecera. Con fondo
        propio y por debajo de ella en z-index, para no transparentarse ni
        taparla. */
-    position:sticky; top:var(--alto-cabecera,0px); z-index:20; background:var(--bg);
+    position:sticky; top:var(--tope-titulo,0px); z-index:20; background:var(--bg);
   }
   .tarjetas{display:grid;gap:8px}
   .clase{
@@ -269,20 +274,30 @@
     .nav-fecha .icono{padding:7px 9px}
     #refrescar{display:none}               /* recargar es cosa de escritorio */
 
-    /* Desplegable flotante: abierto no debe engordar la cabecera pegajosa,
-       asi que se sale del flujo y se superpone a la lista. */
-    #panel-filtros{
-      position:absolute; top:100%; left:0; right:0; z-index:25;
-      padding:12px 14px 4px; background:var(--panel);
-      border-bottom:1px solid var(--linea); box-shadow:var(--sombra);
-    }
+    /* Los filtros no tapan la lista: forman parte del documento y la empujan.
+       Para que eso no clave media pantalla, mientras estan abiertos la cabecera
+       deja de ser pegajosa: te desplazas y desaparecen, subes y vuelven. */
+    body.filtros-abiertos header{position:static}
+    body.filtros-abiertos{--tope-titulo:0px}
     /* Safari en iOS amplia la pagina al enfocar un campo de menos de 16px.
        Subirlos a 16 lo evita, que es la unica forma fiable de hacerlo. */
     input,select,textarea{font-size:16px}
-    .multi .panel{max-height:min(330px,45vh)}   /* que quepa con el teclado */
     .chip .quitar{padding:2px 7px}              /* objetivo tactil decente */
-    .filtros{grid-template-columns:1fr;gap:8px;padding-bottom:10px}
-    .filtros:last-of-type{grid-template-columns:auto 1fr;align-items:center}
+
+    /* Buscador y horas a lo ancho; los tres desplegables comparten una fila,
+       que ahorra unos 95 px de panel. */
+    /* "Actividad" es la palabra mas larga y ademas lleva insignia; "Sala" y
+       "Monitor" van sobradas, asi que las columnas no son iguales. */
+    .filtros{grid-template-columns:1.35fr 1fr 1fr;gap:8px;padding-bottom:10px}
+    .filtros #q,.filtros .horas{grid-column:1/-1}
+    /* 14px cabe en una columna de un tercio; los botones no disparan el zoom
+       de iOS, que solo mira los campos de formulario. */
+    .multi > .disparador{padding:8px;gap:4px;font-size:14px}
+    .multi > .disparador .insignia{margin-left:2px;min-width:16px;height:16px}
+    .multi > .disparador .flecha{margin-left:0}
+    .multi .panel{min-width:min(260px,86vw)}
+
+    #ver-resultados{display:block;width:100%;margin:2px 0 12px;padding:11px}
     .dias{padding-bottom:10px;gap:6px}
     .dia-chip{padding:6px 11px}
 
@@ -327,7 +342,7 @@
         <span class="rotulo">Exportar</span></button>
       <button class="btn" id="tema" title="Tema">◐</button>
       <button class="btn alternar" id="alternar-filtros" aria-expanded="true" aria-controls="panel-filtros">
-        Filtros<span class="insignia" id="n-filtros" hidden></span>
+        Filtros<span class="insignia" id="n-filtros" hidden></span><span class="flecha">&#9662;</span>
       </button>
     </div>
 
@@ -349,6 +364,7 @@
     </div>
 
     <div class="chips" id="chips"></div>
+    <button class="btn principal" id="ver-resultados">Ver las clases</button>
     </div><!-- /panel-filtros -->
 
     <div class="dias" id="dias-chips"></div>
@@ -381,6 +397,7 @@
 const DOW = ["dom","lun","mar","mie","jue","vie","sab"];
 const MESES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
 const $ = s => document.querySelector(s);
+const ESTRECHO = matchMedia("(max-width:720px)");
 const esc = s => String(s ?? "").replace(/[&<>"]/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[m]));
 
 // Dos modos con la misma interfaz:
@@ -408,7 +425,7 @@ function crearMulti(id, etiqueta, singular, plural) {
   const raiz = document.getElementById(id);
   raiz.innerHTML =
     `<button type="button" class="btn disparador" aria-haspopup="listbox" aria-expanded="false">
-       <span class="txt"></span><span class="flecha">&#9660;</span>
+       <span class="txt"></span><span class="insignia cuenta" hidden></span><span class="flecha">&#9660;</span>
      </button>
      <div class="panel" role="listbox">
        <input type="search" class="buscador" placeholder="Filtrar ${plural}…">
@@ -417,15 +434,23 @@ function crearMulti(id, etiqueta, singular, plural) {
 
   const boton = raiz.querySelector(".disparador");
   const texto = raiz.querySelector(".txt");
+  const cuenta = raiz.querySelector(".cuenta");
   const buscador = raiz.querySelector(".buscador");
   const lista = raiz.querySelector(".opciones");
   let opciones = [], elegidos = new Set(), alCambiar = () => {};
 
   const rotular = () => {
     const n = elegidos.size;
-    texto.textContent = n === 0 ? etiqueta
-      : n === 1 ? [...elegidos][0]
-      : `${n} ${plural}`;
+    if (ESTRECHO.matches) {
+      // En una columna de un tercio de pantalla no cabe el valor elegido, y
+      // tampoco hace falta: las etiquetas de abajo ya dicen cual es.
+      texto.textContent = singular[0].toUpperCase() + singular.slice(1);
+      cuenta.hidden = n === 0;
+      cuenta.textContent = n;
+    } else {
+      texto.textContent = n === 0 ? etiqueta : n === 1 ? [...elegidos][0] : `${n} ${plural}`;
+      cuenta.hidden = true;
+    }
     raiz.classList.toggle("activo", n > 0);
   };
 
@@ -451,7 +476,7 @@ function crearMulti(id, etiqueta, singular, plural) {
     // En movil enfocar abre el teclado, que encoge la ventana y descoloca la
     // pagina antes de que hayas visto siquiera la lista. Se deja para quien
     // toque el buscador a proposito.
-    if (!matchMedia("(max-width:720px)").matches) buscador.focus();
+    if (!ESTRECHO.matches) buscador.focus();
   };
   boton.onclick = () => raiz.classList.contains("abierto") ? cerrarMulti(raiz) : abrir();
   buscador.oninput = pintarOpciones;
@@ -470,6 +495,7 @@ function crearMulti(id, etiqueta, singular, plural) {
     quitar(valor) { elegidos.delete(valor); rotular(); if (raiz.classList.contains("abierto")) pintarOpciones(); },
     limpiar() { elegidos.clear(); rotular(); if (raiz.classList.contains("abierto")) pintarOpciones(); },
     alCambiar(fn) { alCambiar = fn; },
+    rotular,
     etiqueta: singular,
   };
   rotular();
@@ -490,6 +516,9 @@ const MULTIS = {
 document.addEventListener("click", e => {
   if (!e.target.closest(".multi")) document.querySelectorAll(".multi.abierto").forEach(cerrarMulti);
 });
+
+// Los rotulos cambian de forma entre movil y escritorio.
+ESTRECHO.addEventListener("change", () => Object.values(MULTIS).forEach(m => m.rotular()));
 
 function pintarChips() {
   const trozos = [];
@@ -586,8 +615,10 @@ async function cargar(refrescar = false) {
   }
 }
 
-const marcarEstado = (n, total) =>
+const marcarEstado = (n, total) => {
   $("#estado").textContent = n === total ? `${n} clases` : `${n} de ${total} clases`;
+  $("#ver-resultados").textContent = n === 1 ? "Ver 1 clase" : `Ver ${n} clases`;
+};
 
 function poblarFiltros() {
   // El catalogo se calcula sobre la ventana completa, asi que las opciones no
@@ -750,11 +781,15 @@ else addEventListener("resize", medirCabecera);
 /* ------------------------- panel de filtros plegable ------------------------ */
 
 const panelFiltros = $("#panel-filtros"), botonFiltros = $("#alternar-filtros");
-const estrecho = () => matchMedia("(max-width:720px)").matches;
+const estrecho = () => ESTRECHO.matches;
 
 function plegar(abierto) {
   panelFiltros.hidden = !abierto;
   botonFiltros.setAttribute("aria-expanded", String(abierto));
+  // La clase suelta la cabecera en movil; el galon convierte el boton en un
+  // interruptor evidente en vez de un rotulo fijo.
+  document.body.classList.toggle("filtros-abiertos", abierto);
+  botonFiltros.querySelector(".flecha").textContent = abierto ? "\u25B4" : "\u25BE";
 }
 
 function contarFiltrosActivos() {
@@ -772,6 +807,14 @@ function marcarInsignia() {
 // Plegado por defecto solo donde estorba; si ya lo abrio o cerro, se respeta.
 const guardado = recordar.leer("filtros-abiertos");
 plegar(guardado === null ? !estrecho() : guardado === "1");
+$("#ver-resultados").onclick = () => {
+  plegar(false);
+  recordar.guardar("filtros-abiertos", "0");
+  // La cabecera vuelve a ser pegajosa al cerrar; sin subir, la lista quedaria
+  // arrancada por la mitad.
+  scrollTo({ top: 0, behavior: "smooth" });
+};
+
 botonFiltros.onclick = () => {
   const abrir = panelFiltros.hidden;
   plegar(abrir);
